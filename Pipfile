@@ -1,0 +1,15 @@
+[[source]]
+url = "https://pypi.python.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[dev-packages]
+
+[packages]
+
+django = "*"
+"django-localflavor" = "*"
+"dj-database-url" = "*"
+"psycopg2" = "*"
+"ae39261" = {path = "/Users/jon/code/superpack", editable = true}
+ipdb = "*"
