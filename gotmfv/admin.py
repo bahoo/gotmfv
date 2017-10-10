@@ -1,13 +1,15 @@
 from django import forms
+from django.conf.urls import url
 from django.contrib.gis import admin
 from django.contrib.admin import SimpleListFilter
 from django.db.models import Q
+from django.http import JsonResponse
 from django.utils.html import mark_safe
 from superpack.admin.options import LayerMappingAdmin
 from .admin_forms import AreaAdminForm, CommitteeAdminForm, PersonAdminForm
 from .fields import TextyManyToManySelect
 from .models import Area, Committee, Person, Precinct, TemplateEmail
-
+import json
 
 
 class AreaInlineAdmin(admin.StackedInline):
@@ -116,11 +118,38 @@ class PrecinctStatusListFilter(SimpleListFilter):
 
 @admin.register(Person)
 class PersonAdmin(admin.ModelAdmin):
+    change_list_template = 'admin/gotmfv-person-changelist.html'
     form = PersonAdminForm
     list_display = ['full_name', 'precinct', 'phone_number', 'linkable_email', 'status']
     list_filter = [AreaListFilter, 'status', PrecinctStatusListFilter, AffiliationListFilter]
-    search_fields = ['full_name', 'email', 'phone_number', 'precinct__name']
     list_select_related = ['precinct']
+    search_fields = ['full_name', 'email', 'phone_number', 'precinct__name']
+
+    def get_urls(self):
+        return [
+            url(r'^precincts/$', self.precincts),
+        ] + super(PersonAdmin, self).get_urls()
+
+    def precincts(self, request):
+        precinct_ids = Person.objects.filter(pk__in=request.GET.get('ids').split(',')).values_list('precinct_id')
+
+        features = []
+        precincts = Precinct.objects.filter(st_code__in=precinct_ids)
+
+        for precinct in precincts:
+            features.append({
+                    'type': "Feature",
+                    'properties': {
+                        'name': precinct.name,
+                        'code': precinct.code
+                    },
+                    'geometry': json.loads(precinct.geom.json)
+                })
+
+        return JsonResponse({
+                    "type": "FeatureCollection",
+                    "features": features
+                })
 
     def linkable_email(self, obj):
         if not obj.email:
